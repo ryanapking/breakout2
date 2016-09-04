@@ -1,19 +1,31 @@
 function Gameboard() {
   this.width = 400;
   this.paddle = new Paddle(this.width);
-  this.ball = new Ball();
+  this.ball = new Ball(this.width);
   this.currentLevel = new Level(this.width);
 };
 
 Gameboard.prototype.repositionElements = function(timePassed) {
   this.paddle.repositionPaddle(timePassed);
+  if (this.ball.stuck) {
+    this.ballStuck();
+  } else {
+    this.repositionBall(timePassed);
+  }
 }
 
-Gameboard.prototype.repositionBall = function() {
-
+Gameboard.prototype.repositionBall = function(timePassed) {
+  this.ball.x += this.ball.speed * this.ball.direction * timePassed / 1000;
+  this.ball.y += this.ball.speed * this.ball.slope * timePassed / 1000;
+  this.ball.x2 = this.ball.x + this.ball.width;
+  this.ball.y2 = this.ball.y + this.ball.height;
+  this.checkCollision();
 };
 
 Gameboard.prototype.checkCollision = function() {
+  if (this.checkWalls()) {
+    return;
+  }
   if (this.ball.slope > 0) {
     this.checkBottom();
   } else {
@@ -26,28 +38,93 @@ Gameboard.prototype.checkCollision = function() {
   }
 };
 
-Gameboard.prototype.checkBottom = function() {
+Gameboard.prototype.withinX = function(x, x2) {
+  if (this.ball.x >= x && this.ball.x <= x2 || this.ball.x2 >= x && this.ball.x2 <= x2) {
+    return true;
+  } else {
+    return false;
+  }
+};
 
+Gameboard.prototype.withinY = function(y, y2) {
+  if (this.ball.y >= y && this.ball.y <= y2 || this.ball.y2 >= y && this.ball.y2 <= y2) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
+Gameboard.prototype.withinXY = function(x, y) {
+  
+};
+
+Gameboard.prototype.checkBottom = function() {
+  if (this.withinX(this.paddle.x, this.paddle.x2) && this.withinY(this.paddle.y, this.paddle.y2)) {
+    this.ball.slope = -this.ball.slope;
+  }
 };
 
 Gameboard.prototype.checkTop = function() {
-
+  for (var i = 0; i < this.currentLevel.blocks.length; i++) {
+    if (this.withinX(this.currentLevel.blocks[i].x, this.currentLevel.blocks[i].x2) && this.withinY(this.currentLevel.blocks[i].y, this.currentLevel.blocks[i].y2)) {
+      this.ball.slope = -this.ball.slope;
+      this.currentLevel.removeBlock(i);
+    } else {
+    }
+  }
 };
 
 Gameboard.prototype.checkLeft = function() {
-
+  for (var i = 0; i < this.currentLevel.blocks.length; i++) {
+    if (this.withinX(this.currentLevel.blocks[i].x, this.currentLevel.blocks[i].y) && this.withinY(this.currentLevel.blocks[i].x2, this.currentLevel.blocks[i].y2)) {
+      this.ball.direction = -this.ball.direction;
+      this.currentLevel.removeBlock(i);
+    } else {
+    }
+  }
 };
 
 Gameboard.prototype.checkRight = function() {
 
 };
 
-function Ball() {
-  this.location
-  this.size
-  this.speed
-  this.slope
-  this.direction
+Gameboard.prototype.checkWalls = function() {
+  if (this.ball.x < 0) {
+    this.ball.direction = -this.ball.direction;
+    return true;
+  } else if (this.ball.x2 > this.width) {
+    this.ball.direction = -this.ball.direction;
+    return true;
+  }
+  if (this.ball.y < 0) {
+    this.ball.slope = -this.ball.slope;
+    return true;
+  } else if (this.ball.y > this.width) {
+    alert("ball lost!");
+  }
+  return false;
+};
+
+Gameboard.prototype.ballStuck = function() {
+  if (this.ball.stuck) {
+    this.ball.x = this.paddle.x + (.5 * this.paddle.width) - (.5 * this.ball.width);
+    this.ball.y = this.paddle.y - this.ball.height;
+  }
+}
+
+function Ball(canvasWidth) {
+  this.canvasWidth = canvasWidth;
+  this.x = 200;
+  this.y = 200;
+  this.width = this.canvasWidth / 60;
+  this.height = this.width;
+  this.x2 = this.x + this.width;
+  this.y2 = this.y + this.height;
+  this.speed = this.canvasWidth / 1.5;
+  this.slope = -1;
+  this.direction = .5;
+  this.color = "lightgray";
+  this.stuck = true;
 };
 
 Ball.prototype.changeDirection = function() {
@@ -60,6 +137,8 @@ function Paddle(canvasWidth) {
   this.y = (this.canvasWidth / 20) * 17;
   this.width = (this.canvasWidth / 20) * 3;
   this.height = this.canvasWidth / 40;
+  this.x2 = this.x + this.width;
+  this.y2 = this.y + this.height;
   this.speed = this.canvasWidth / 2;
   this.influence
   this.color = "gray";
@@ -70,12 +149,16 @@ function Paddle(canvasWidth) {
 Paddle.prototype.repositionPaddle = function(timePassed) {
   if (this.leftPressed && this.x > 0) {
     this.x -= (this.speed * (timePassed / 1000));
+    this.x2 = this.x + this.width;
   } else if (this.rightPressed && this.x + this.width < this.canvasWidth) {
     this.x += (this.speed * (timePassed / 1000));
+    this.x2 = this.x + this.width;
   } else if (this.x < 0) {
     this.x = 0;
+    this.x2 = this.x + this.width;
   } else if (this.x + this.width > this.canvasWidth) {
     this.x = this.canvasWidth - this.width;
+    this.x2 = this.x + this.width;
   }
 };
 
@@ -95,12 +178,18 @@ Level.prototype.buildLevel1 = function() {
   }
 };
 
+Level.prototype.removeBlock = function(index) {
+  this.blocks.splice(index, 1);
+};
+
 function Block(x, y, blockWidth, blockHeight) {
   this.strength = 1;
   this.x = x;
   this.y = y;
   this.blockWidth = blockWidth;
   this.blockHeight = blockHeight;
+  this.x2 = this.x + this.blockWidth;
+  this.y2 = this.y + this.blockHeight;
   this.type
   this.color = this.getColor();
   this.influence
@@ -132,6 +221,9 @@ Block.prototype.getColor = function() {
 Gameboard.prototype.drawGameCanvas = function(context, canvas) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.beginPath();
+  context.fillStyle = this.ball.color;
+  context.fillRect(this.ball.x, this.ball.y, this.ball.width, this.ball.height);
+  context.strokeRect(this.ball.x, this.ball.y, this.ball.width, this.ball.height);
   context.fillStyle = this.paddle.color;
   context.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
   context.strokeRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
@@ -153,7 +245,7 @@ $(document).ready(function() {
   var gameContext = gameCanvas.getContext("2d");
   var now;
   var then = Date.now();;
-  setInterval(runGame, 1000/60);
+  var runGame = setInterval(runGame, 1000/60);
   function runGame() {
     now = Date.now();
     var timePassed = now - then;
@@ -167,6 +259,8 @@ $(document).ready(function() {
       gameboard.paddle.leftPressed = true;
     } else if (key === 39) {
       gameboard.paddle.rightPressed = true;
+    } else if (key === 38) {
+      gameboard.ball.stuck = false;
     }
   });
   $(window).keyup(function(event) {
@@ -175,6 +269,8 @@ $(document).ready(function() {
       gameboard.paddle.leftPressed = false;
     } else if (key === 39) {
       gameboard.paddle.rightPressed = false;
+    } else if (key === 40) {
+      gameboard.ball.stuck = true;
     }
   });
 });
