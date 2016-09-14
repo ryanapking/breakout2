@@ -3,6 +3,7 @@ function Gameboard() {
   this.paddle = new Paddle(this.width);
   this.ball = new Ball(this.width);
   this.currentLevel = new Level(this.width);
+  this.level = 1;
 };
 
 Gameboard.prototype.repositionElements = function(timePassed) {
@@ -15,120 +16,177 @@ Gameboard.prototype.repositionElements = function(timePassed) {
 }
 
 Gameboard.prototype.repositionBall = function(timePassed) {
-  this.ball.x += this.ball.speed * this.ball.direction * timePassed / 1000;
-  this.ball.y += this.ball.speed * this.ball.slope * timePassed / 1000;
-  this.ball.x2 = this.ball.x + this.ball.width;
-  this.ball.y2 = this.ball.y + this.ball.height;
+  this.ball.newX = this.ball.x + this.ball.speed * this.ball.direction * timePassed / 1000;
+  this.ball.newY = this.ball.y + this.ball.speed * this.ball.slope * timePassed / 1000;
+  this.ball.setNewBounds();
   this.checkCollision();
+  this.ball.x = this.ball.newX;
+  this.ball.y = this.ball.newY;
+  this.ball.setBounds();
 };
 
 Gameboard.prototype.checkCollision = function() {
-  if (this.checkWalls()) {
-    return;
-  }
-  if (this.ball.slope > 0) {
-    this.checkBottom();
-  } else {
-    this.checkTop();
-  }
-  if (this.ball.direction > 0) {
-    this.checkRight();
-  } else {
-    this.checkLeft();
-  }
-};
-
-Gameboard.prototype.withinX = function(x, x2) {
-  if (this.ball.x >= x && this.ball.x <= x2 || this.ball.x2 >= x && this.ball.x2 <= x2) {
-    return true;
-  } else {
-    return false;
-  }
-};
-
-Gameboard.prototype.withinY = function(y, y2) {
-  if (this.ball.y >= y && this.ball.y <= y2 || this.ball.y2 >= y && this.ball.y2 <= y2) {
-    return true;
-  } else {
-    return false;
-  }
-};
-
-Gameboard.prototype.withinXY = function(x, y) {
-  
-};
-
-Gameboard.prototype.checkBottom = function() {
-  if (this.withinX(this.paddle.x, this.paddle.x2) && this.withinY(this.paddle.y, this.paddle.y2)) {
-    this.ball.slope = -this.ball.slope;
-  }
-};
-
-Gameboard.prototype.checkTop = function() {
+  this.checkPaddleCollision();
   for (var i = 0; i < this.currentLevel.blocks.length; i++) {
-    if (this.withinX(this.currentLevel.blocks[i].x, this.currentLevel.blocks[i].x2) && this.withinY(this.currentLevel.blocks[i].y, this.currentLevel.blocks[i].y2)) {
+    var x = this.currentLevel.blocks[i].x;
+    var y = this.currentLevel.blocks[i].y;
+    var x2 = this.currentLevel.blocks[i].x2;
+    var y2 = this.currentLevel.blocks[i].y2;
+    if (this.checkBallTop(x, y, x2, y2)) {
       this.ball.slope = -this.ball.slope;
       this.currentLevel.removeBlock(i);
-    } else {
-    }
-  }
-};
-
-Gameboard.prototype.checkLeft = function() {
-  for (var i = 0; i < this.currentLevel.blocks.length; i++) {
-    if (this.withinX(this.currentLevel.blocks[i].x, this.currentLevel.blocks[i].y) && this.withinY(this.currentLevel.blocks[i].x2, this.currentLevel.blocks[i].y2)) {
+      return;
+    } else if (this.checkBallBottom(x, y, x2, y2)) {
+      this.ball.slope = -this.ball.slope;
+      this.currentLevel.removeBlock(i);
+      return;
+    } else if (this.checkBallRight(x, y, x2, y2)) {
       this.ball.direction = -this.ball.direction;
       this.currentLevel.removeBlock(i);
-    } else {
+      return;
+    } else if (this.checkBallLeft(x, y, x2, y2)) {
+      this.ball.direction = -this.ball.direction;
+      this.currentLevel.removeBlock(i);
+      return;
     }
   }
+  if (this.checkWallCollision()) {
+    return;
+  }
 };
 
-Gameboard.prototype.checkRight = function() {
-
+Gameboard.prototype.checkBallTop = function(x, y, x2, y2) {
+  if (this.ball.newTopX > x && this.ball.newTopX < x2 && this.ball.newTopY > y && this.ball.newTopY < y2) {
+    this.ball.newY = y2 + this.ball.radius;
+    return true;
+  } else {
+    return false;
+  }
 };
 
-Gameboard.prototype.checkWalls = function() {
-  if (this.ball.x < 0) {
+Gameboard.prototype.checkBallBottom = function(x, y, x2, y2) {
+  if (this.ball.newBottomX > x && this.ball.newBottomX < x2 && this.ball.newBottomY > y && this.ball.newBottomY < y2) {
+    this.ball.newY = y - this.ball.radius;
+    return true;
+  } else {
+    return false;
+  }
+};
+
+Gameboard.prototype.checkBallRight = function(x, y, x2, y2) {
+  if (this.ball.newRightX > x && this.ball.newRightX < x2 && this.ball.newRightY > y && this.ball.newRightY < y2) {
+    this.ball.newX = x - this.ball.radius;
+    return true;
+  } else {
+    return false;
+  }
+};
+
+Gameboard.prototype.checkBallLeft = function(x, y, x2, y2) {
+  if (this.ball.newLeftX > x && this.ball.newLeftX < x2 && this.ball.newLeftY > y && this.ball.newLeftY < y2) {
+    this.ball.newX = x2 + this.ball.radius;
+    return true;
+  } else {
+    return false;
+  }
+};
+
+Gameboard.prototype.checkWallCollision = function() {
+  if (this.ball.newLeftX < 0) {
+    this.ball.newX = 0 + this.ball.radius;
     this.ball.direction = -this.ball.direction;
     return true;
-  } else if (this.ball.x2 > this.width) {
+  } else if (this.ball.newRightX > this.width) {
+    this.ball.newX = this.width - this.ball.radius;
     this.ball.direction = -this.ball.direction;
     return true;
   }
-  if (this.ball.y < 0) {
+  if (this.ball.newTopY < 0) {
+    this.ball.newY = 0 + this.ball.radius;
     this.ball.slope = -this.ball.slope;
     return true;
-  } else if (this.ball.y > this.width) {
-    alert("ball lost!");
+  } else if (this.ball.newTopY > this.width) {
+    this.ball = new Ball(this.width);
   }
   return false;
 };
 
+Gameboard.prototype.checkPaddleCollision = function() {
+  var x = this.paddle.x;
+  var y = this.paddle.y;
+  var x2 = this.paddle.x2;
+  var y2 = this.paddle.y2;
+  if (this.checkBallBottom(x, y, x2, y2)) {
+    this.ball.slope = -this.ball.slope;
+    this.paddle.setInfluence(this.ball.newX);
+    if (this.ball.direction > 0) {
+      this.ball.direction += this.paddle.influence;
+    } else {
+      this.ball.direction -= this.paddle.influence;
+    }
+    console.log(this.ball.direction);
+  }
+};
+
 Gameboard.prototype.ballStuck = function() {
   if (this.ball.stuck) {
-    this.ball.x = this.paddle.x + (.5 * this.paddle.width) - (.5 * this.ball.width);
-    this.ball.y = this.paddle.y - this.ball.height;
+    this.ball.x = this.paddle.x + (.5 * this.paddle.width);
+    this.ball.y = this.paddle.y - this.ball.radius;
   }
-}
+};
 
 function Ball(canvasWidth) {
   this.canvasWidth = canvasWidth;
   this.x = 200;
   this.y = 200;
-  this.width = this.canvasWidth / 60;
-  this.height = this.width;
-  this.x2 = this.x + this.width;
-  this.y2 = this.y + this.height;
+  this.radius = this.canvasWidth / 100;
+  this.topX = this.x;
+  this.topY = this.y - this.radius;
+  this.bottomX = this.x;
+  this.bottomY = this.y + this.radius;
+  this.rightX = this.x + this.radius;
+  this.rightY = this.y;
+  this.leftX = this.x - this.radius;
+  this.leftY = this.y;
+  this.newX = this.x;
+  this.newY = this.y;
+  this.newTopX = this.topX;
+  this.newTopY = this.topY;
+  this.newBottomX = this.bottomX;
+  this.newBottomY = this.bottomY;
+  this.newRightX = this.rightX;
+  this.newRightY = this.rightY;
+  this.newLeftX = this.leftX;
+  this.newLeftY = this.leftY;
   this.speed = this.canvasWidth / 1.5;
   this.slope = -1;
   this.direction = .5;
   this.color = "lightgray";
   this.stuck = true;
+  this.sideCollision = "right";
+  this.topCollision = "top";
 };
 
-Ball.prototype.changeDirection = function() {
+Ball.prototype.setBounds = function() {
+  this.topX = this.x;
+  this.topY = this.y - this.radius;
+  this.bottomX = this.x;
+  this.bottomY = this.y + this.radius;
+  this.rightX = this.x + this.radius;
+  this.rightY = this.y;
+  this.leftX = this.x - this.radius;
+  this.leftY = this.y;
+};
 
+Ball.prototype.setNewBounds = function() {
+  this.newTopX = this.newX;
+  this.newTopY = this.newY - this.radius;
+  this.newBottomX = this.newX;
+  this.newBottomY = this.newY + this.radius;
+  this.newRightX = this.newX + this.radius;
+  this.newRightY = this.newY;
+  this.newLeftX = this.newX - this.radius;
+  this.newLeftY = this.newY;
 };
 
 function Paddle(canvasWidth) {
@@ -139,11 +197,31 @@ function Paddle(canvasWidth) {
   this.height = this.canvasWidth / 40;
   this.x2 = this.x + this.width;
   this.y2 = this.y + this.height;
-  this.speed = this.canvasWidth / 2;
+  this.speed = this.canvasWidth / 1.5;
   this.influence
   this.color = "gray";
   this.leftPressed = false;
   this.rightPressed = false;
+};
+
+Paddle.prototype.setInfluence = function(x) {
+  x = x - this.x;
+  var zoneSize = this.width / 7;
+  if (x < zoneSize) {
+    this.influence = .2;
+  } else if (x < zoneSize * 2) {
+    this.influence = .1;
+  } else if (x < zoneSize * 3) {
+    this.influence = 0;
+  } else if (x < zoneSize * 4) {
+    this.influence = -.1;
+  } else if (x < zoneSize * 5) {
+    this.influence = 0;
+  } else if (x < zoneSize * 6) {
+    this.influence = .1;
+  } else if (x < zoneSize * 6) {
+    this.influence = .2;
+  }
 };
 
 Paddle.prototype.repositionPaddle = function(timePassed) {
@@ -160,6 +238,10 @@ Paddle.prototype.repositionPaddle = function(timePassed) {
     this.x = this.canvasWidth - this.width;
     this.x2 = this.x + this.width;
   }
+  if (this.leftPressed || this.rightPressed) {
+    // console.log(this.x, this.x2);
+    // console.log(this.y, this.y2);
+  }
 };
 
 function Level(canvasWidth) {
@@ -171,7 +253,7 @@ function Level(canvasWidth) {
 };
 
 Level.prototype.buildLevel1 = function() {
-  for (var i = 1; i < 6; i++) {
+  for (var i = 2; i < 7; i++) {
     for (var j = 0; j < 10; j++) {
       this.blocks.push(new Block(this.blockWidth * j, this.blockHeight * i, this.blockWidth, this.blockHeight));
     }
@@ -222,8 +304,7 @@ Gameboard.prototype.drawGameCanvas = function(context, canvas) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.beginPath();
   context.fillStyle = this.ball.color;
-  context.fillRect(this.ball.x, this.ball.y, this.ball.width, this.ball.height);
-  context.strokeRect(this.ball.x, this.ball.y, this.ball.width, this.ball.height);
+  context.arc(this.ball.x, this.ball.y, this.ball.radius, 0, 2 * Math.PI);
   context.fillStyle = this.paddle.color;
   context.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
   context.strokeRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
@@ -233,6 +314,8 @@ Gameboard.prototype.drawGameCanvas = function(context, canvas) {
     context.fillstyle = "black";
     context.strokeRect(block.x, block.y, block.blockWidth, block.blockHeight);
   })
+  context.fillStyle = this.ball.color;
+  context.fill();
   context.stroke();
   context.closePath();
 };
